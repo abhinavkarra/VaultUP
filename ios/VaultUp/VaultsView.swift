@@ -14,16 +14,7 @@ struct VaultsView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                // Background
-                LinearGradient(
-                    gradient: Gradient(colors: [
-                        Color(red: 0.05, green: 0.05, blue: 0.15),
-                        Color(red: 0.1, green: 0.08, blue: 0.2)
-                    ]),
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
+                VUBackground()
                 
                 VStack {
                     // Header
@@ -76,8 +67,7 @@ struct VaultsView: View {
                                     .padding(.top, 8)
                                 }
                                 .padding(24)
-                                .background(Color(red: 0.1, green: 0.1, blue: 0.2))
-                                .cornerRadius(12)
+                                .vuCard(radius: 16)
                                 .padding(.horizontal, 20)
                                 .padding(.top, 20)
                             } else {
@@ -102,8 +92,7 @@ struct VaultsView: View {
                                     }
                                 }
                                 .padding(12)
-                                .background(Color(red: 0.25, green: 0.18, blue: 0.1))
-                                .cornerRadius(8)
+                                .vuCard(fill: .orange.opacity(0.18), radius: 12)
                                 .padding(.horizontal, 20)
                                 .padding(.top, 20)
                             }
@@ -117,15 +106,7 @@ struct VaultsView: View {
             .sheet(isPresented: $showingCreateSheet) {
                 NavigationStack {
                     ZStack {
-                        LinearGradient(
-                            gradient: Gradient(colors: [
-                                Color(red: 0.05, green: 0.05, blue: 0.15),
-                                Color(red: 0.1, green: 0.08, blue: 0.2)
-                            ]),
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                        .ignoresSafeArea()
+                        VUBackground()
                         
                         VStack(alignment: .leading, spacing: 20) {
                             Text("Create New Vault")
@@ -300,30 +281,12 @@ struct VaultDetailCard: View {
                             .foregroundColor(.green)
                     }
                     
-                    GeometryReader { geometry in
-                        ZStack(alignment: .leading) {
-                            Rectangle()
-                                .fill(Color(red: 0.2, green: 0.2, blue: 0.3))
-                            
-                            Rectangle()
-                                .fill(
-                                    LinearGradient(
-                                        gradient: Gradient(colors: [.green, .cyan]),
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
-                                )
-                                .frame(width: geometry.size.width * (vault.progressPercentage / 100))
-                        }
-                        .cornerRadius(4)
-                    }
-                    .frame(height: 8)
+                    ProgressBar(progress: vault.progressPercentage, colors: [.green, .cyan])
                 }
             }
         }
         .padding(16)
-        .background(Color(red: 0.1, green: 0.1, blue: 0.2))
-        .cornerRadius(12)
+        .vuCard(radius: 16)
     }
 }
 

@@ -28,15 +28,7 @@ struct PaymentView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                LinearGradient(
-                    gradient: Gradient(colors: [
-                        Color(red: 0.05, green: 0.05, blue: 0.15),
-                        Color(red: 0.1, green: 0.08, blue: 0.2)
-                    ]),
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
+                VUBackground()
                 
                 VStack {
                     // Header
@@ -79,8 +71,7 @@ struct PaymentView: View {
                                     .background(Color(red: 0.2, green: 0.2, blue: 0.3))
                             }
                             .padding(20)
-                            .background(Color(red: 0.1, green: 0.1, blue: 0.2))
-                            .cornerRadius(12)
+                            .vuCard(radius: 16)
                             .padding(.horizontal, 20)
                             
                             // Roundup Preview
@@ -130,8 +121,7 @@ struct PaymentView: View {
                                     }
                                 }
                                 .padding(16)
-                                .background(Color(red: 0.12, green: 0.12, blue: 0.22))
-                                .cornerRadius(12)
+                                .vuCard(fill: .vuCardElevated, radius: 16)
                                 .padding(.horizontal, 20)
                             }
                             
@@ -142,13 +132,23 @@ struct PaymentView: View {
                                     .fontWeight(.semibold)
                                     .foregroundColor(.white)
                                 
-                                Picker("Merchant", selection: $merchantName) {
-                                    ForEach(merchants, id: \.self) { merchant in
-                                        Text(merchant).tag(merchant)
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 8) {
+                                        ForEach(merchants, id: \.self) { merchant in
+                                            Button(merchant) {
+                                                merchantName = merchant
+                                            }
+                                            .font(.subheadline.weight(.medium))
+                                            .padding(.horizontal, 14)
+                                            .padding(.vertical, 9)
+                                            .buttonStyle(.plain)
+                                            .foregroundColor(.white)
+                                            .background(merchantName == merchant ? Color.indigo : Color.vuCardInset)
+                                            .clipShape(Capsule())
+                                            .overlay { Capsule().strokeBorder(Color.white.opacity(0.08), lineWidth: 1) }
+                                        }
                                     }
                                 }
-                                .pickerStyle(.segmented)
-                                .tint(.indigo)
                             }
                             .padding(.horizontal, 20)
                             
@@ -178,8 +178,7 @@ struct PaymentView: View {
                                 }
                             }
                             .padding(16)
-                            .background(Color(red: 0.1, green: 0.15, blue: 0.2))
-                            .cornerRadius(12)
+                            .vuCard(fill: .cyan.opacity(0.12), radius: 16)
                             .padding(.horizontal, 20)
                             
                             // Pay Button
@@ -225,8 +224,7 @@ struct PaymentView: View {
                                     }
                                 }
                                 .padding(12)
-                                .background(Color(red: 0.25, green: 0.1, blue: 0.1))
-                                .cornerRadius(8)
+                                .vuCard(fill: .vuDanger, radius: 12)
                                 .padding(.horizontal, 20)
                             }
                             
@@ -272,15 +270,7 @@ struct PaymentSuccessSheet: View {
     
     var body: some View {
         ZStack {
-            LinearGradient(
-                gradient: Gradient(colors: [
-                    Color(red: 0.05, green: 0.05, blue: 0.15),
-                    Color(red: 0.1, green: 0.08, blue: 0.2)
-                ]),
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+            VUBackground()
             
             VStack(spacing: 24) {
                 VStack(spacing: 16) {

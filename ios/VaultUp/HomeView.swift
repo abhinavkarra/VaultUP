@@ -1,299 +1,221 @@
-// HomeView.swift
-// Dashboard and main home screen
-
 import SwiftUI
 
 struct HomeView: View {
     @StateObject private var networkManager = NetworkManager()
-    @State private var showingLoginSheet = false
-    @State private var userName = ""
-    @State private var userEmail = ""
-    
+    @State private var userIdText = "1"
+
     var body: some View {
         NavigationStack {
             ZStack {
-                // Background gradient
-                LinearGradient(
-                    gradient: Gradient(colors: [
-                        Color(red: 0.05, green: 0.05, blue: 0.15),
-                        Color(red: 0.1, green: 0.08, blue: 0.2)
-                    ]),
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
-                
-                VStack(spacing: 0) {
-                    // Header
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            VStack(alignment: .leading) {
-                                Text("VaultUp ⚡")
-                                    .font(.title2)
-                                    .fontWeight(.bold)
-                                    .foregroundColor(.white)
-                                
-                                if let dashboard = networkManager.dashboard {
-                                    Text(dashboard.userName)
-                                        .font(.subheadline)
-                                        .foregroundColor(.gray)
-                                }
-                            }
-                            Spacer()
-                            
-                            if networkManager.dashboard != nil {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(.green)
-                                    .font(.title3)
-                            }
+                VUBackground()
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 24) {
+                        header
+                        if let dashboard = networkManager.dashboard {
+                            dashboardContent(dashboard)
+                        } else {
+                            loginCard
+                        }
+                        if let error = networkManager.errorMessage {
+                            Label(error, systemImage: "exclamationmark.circle.fill")
+                                .font(.subheadline)
+                                .foregroundColor(.orange)
+                                .padding(14)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .vuCard(fill: .vuDanger, radius: 14)
                         }
                     }
                     .padding(.horizontal, 20)
-                    .padding(.vertical, 16)
-                    
-                    ScrollView {
-                        VStack(spacing: 20) {
-                            if networkManager.dashboard == nil {
-                                // Login prompt
-                                VStack(spacing: 16) {
-                                    Image(systemName: "wallet.pass.fill")
-                                        .font(.system(size: 48))
-                                        .foregroundColor(.indigo)
-                                    
-                                    Text("Welcome to VaultUp")
-                                        .font(.title2)
-                                        .fontWeight(.bold)
-                                        .foregroundColor(.white)
-                                    
-                                    Text("Enter your User ID to continue")
-                                        .font(.subheadline)
-                                        .foregroundColor(.gray)
-                                    
-                                    TextField("Enter User ID", text: $userName)
-                                        .keyboardType(.numberPad)
-                                        .padding(12)
-                                        .background(Color(red: 0.15, green: 0.15, blue: 0.25))
-                                        .cornerRadius(8)
-                                        .foregroundColor(.white)
-                                    
-                                    Button(action: {
-                                        if !userName.isEmpty, let userId = Int(userName) {
-                                            Task {
-                                                networkManager.setUserId(userId)
-                                                await networkManager.fetchDashboard(userId: userId)
-                                            }
-                                        }
-                                    }) {
-                                        Text("Load Dashboard")
-                                            .font(.headline)
-                                            .foregroundColor(.white)
-                                            .frame(maxWidth: .infinity)
-                                            .padding(12)
-                                            .background(Color.indigo)
-                                            .cornerRadius(8)
-                                    }
-                                }
-                                .padding(24)
-                                .background(Color(red: 0.1, green: 0.1, blue: 0.2))
-                                .cornerRadius(12)
-                                .padding(.horizontal, 20)
-                                .padding(.top, 20)
-                            } else if let dashboard = networkManager.dashboard {
-                                // Dashboard Content
-                                
-                                // Total Balance Card
-                                VStack(alignment: .leading, spacing: 12) {
-                                    HStack {
-                                        Text("Total Balance")
-                                            .foregroundColor(.gray)
-                                            .font(.subheadline)
-                                        Spacer()
-                                        Image(systemName: "banknote")
-                                            .foregroundColor(.indigo)
-                                    }
-                                    
-                                    Text("₹\(String(format: "%.2f", dashboard.totalBalance))")
-                                        .font(.system(size: 32, weight: .bold, design: .default))
-                                        .foregroundColor(.white)
-                                    
-                                    HStack(spacing: 20) {
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text("Liquid")
-                                                .font(.caption)
-                                                .foregroundColor(.gray)
-                                            Text("₹\(String(format: "%.0f", dashboard.liquidBalance))")
-                                                .font(.headline)
-                                                .foregroundColor(.cyan)
-                                        }
-                                        
-                                        Divider()
-                                            .frame(height: 30)
-                                        
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text("Goals")
-                                                .font(.caption)
-                                                .foregroundColor(.gray)
-                                            Text("₹\(String(format: "%.0f", dashboard.goalBalance))")
-                                                .font(.headline)
-                                                .foregroundColor(.green)
-                                        }
-                                        
-                                        Spacer()
-                                    }
-                                }
-                                .padding(20)
-                                .background(Color(red: 0.12, green: 0.12, blue: 0.22))
-                                .cornerRadius(12)
-                                .padding(.horizontal, 20)
-                                .padding(.top, 20)
-                                
-                                // Vaults Section
-                                VStack(alignment: .leading, spacing: 12) {
-                                    Text("Active Vaults")
-                                        .font(.headline)
-                                        .foregroundColor(.white)
-                                        .padding(.horizontal, 20)
-                                    
-                                    if dashboard.vaults.isEmpty {
-                                        Text("No vaults yet. Create one in the Vaults tab!")
-                                            .font(.subheadline)
-                                            .foregroundColor(.gray)
-                                            .padding(.horizontal, 20)
-                                    } else {
-                                        VStack(spacing: 12) {
-                                            ForEach(dashboard.vaults) { vault in
-                                                VaultCard(vault: vault)
-                                            }
-                                        }
-                                        .padding(.horizontal, 20)
-                                    }
-                                }
-                                .padding(.top, 20)
-                                
-                                // Student Status
-                                if dashboard.isStudentVerified {
-                                    VStack(spacing: 8) {
-                                        HStack {
-                                            Image(systemName: "checkmark.seal.fill")
-                                                .foregroundColor(.green)
-                                            Text("Student Verified")
-                                                .font(.subheadline)
-                                                .fontWeight(.semibold)
-                                            Spacer()
-                                        }
-                                        .foregroundColor(.white)
-                                    }
-                                    .padding(16)
-                                    .background(Color(red: 0.1, green: 0.2, blue: 0.1))
-                                    .cornerRadius(8)
-                                    .padding(.horizontal, 20)
-                                    .padding(.top, 20)
-                                }
-                            }
-                            
-                            if let error = networkManager.errorMessage {
-                                VStack {
-                                    HStack {
-                                        Image(systemName: "exclamationmark.circle.fill")
-                                            .foregroundColor(.red)
-                                        Text(error)
-                                            .font(.subheadline)
-                                            .foregroundColor(.red)
-                                        Spacer()
-                                    }
-                                }
-                                .padding(12)
-                                .background(Color(red: 0.25, green: 0.1, blue: 0.1))
-                                .cornerRadius(8)
-                                .padding(.horizontal, 20)
-                                .padding(.top, 20)
-                            }
-                            
-                            Spacer()
-                                .frame(height: 20)
-                        }
-                    }
+                    .padding(.top, 16)
+                    .padding(.bottom, 28)
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
         }
     }
+
+    private var header: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle().fill(Color.vuCardInset).frame(width: 52, height: 52)
+                Image(systemName: "person.fill").font(.title2).foregroundColor(.cyan)
+            }
+            VStack(alignment: .leading, spacing: 5) {
+                Text(networkManager.dashboard?.userName ?? "Welcome back")
+                    .font(.title3.weight(.bold)).foregroundColor(.white)
+                if networkManager.dashboard?.isStudentVerified == true {
+                    Label("Student Verified", systemImage: "checkmark.seal.fill")
+                        .font(.caption.weight(.semibold)).foregroundColor(.mint)
+                }
+            }
+            Spacer()
+            Image(systemName: "bell")
+                .foregroundColor(.white)
+                .frame(width: 42, height: 42)
+                .background(Color.vuCard)
+                .clipShape(Circle())
+        }
+    }
+
+    private func dashboardContent(_ dashboard: Dashboard) -> some View {
+        VStack(alignment: .leading, spacing: 24) {
+            Text("Your money, with a plan.")
+                .font(.title.weight(.bold)).foregroundColor(.white)
+            Text("A quiet view of what is available and what is growing.")
+                .font(.subheadline).foregroundColor(.white.opacity(0.62))
+            liquidBalanceCard(dashboard)
+            HStack {
+                Text("Active Goal Vault").font(.headline.weight(.bold)).foregroundColor(.white)
+                Spacer()
+                Text("See all").font(.subheadline.weight(.semibold)).foregroundColor(.cyan)
+            }
+            if let goal = dashboard.vaults.first(where: { $0.type.lowercased() == "goal" }) {
+                goalCard(goal)
+            } else {
+                emptyGoalCard
+            }
+            Text("Quick Actions").font(.headline.weight(.bold)).foregroundColor(.white)
+            HStack(spacing: 12) {
+                QuickAction(title: "Add Cash", symbol: "wallet.pass.fill", color: .cyan)
+                QuickAction(title: "Analytics", symbol: "chart.line.uptrend.xyaxis", color: .indigo)
+                QuickAction(title: "Split Bill", symbol: "person.2.fill", color: .green)
+                QuickAction(title: "Perks", symbol: "tag.fill", color: .orange)
+            }
+            Text("Recent Roundups").font(.headline.weight(.bold)).foregroundColor(.white)
+            roundupCard
+        }
+    }
+
+    private func liquidBalanceCard(_ dashboard: Dashboard) -> some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack {
+                Text("VaultUp Lite (Sub-Wallet)").font(.subheadline.weight(.semibold)).foregroundColor(.white.opacity(0.8))
+                Spacer()
+                Image(systemName: "bolt.fill").foregroundColor(.yellow)
+            }
+            Text("₹\(String(format: "%.2f", dashboard.liquidBalance))")
+                .font(.system(size: 38, weight: .bold, design: .rounded)).foregroundColor(.white)
+            
+            VStack(spacing: 6) {
+                ProgressBar(progress: min(Double(dashboard.liquidBalance) / 5000.0 * 100, 100), colors: [.yellow, .orange])
+                HStack {
+                    Text("Auto-refills from bank").font(.caption).foregroundColor(.white.opacity(0.5))
+                    Spacer()
+                    Text("Limit: ₹5,000").font(.caption.weight(.medium)).foregroundColor(.white.opacity(0.7))
+                }
+            }
+            
+            HStack(spacing: 12) {
+                ActionTile(title: "Scan & Pay", symbol: "qrcode.viewfinder", fill: .cyan)
+                ActionTile(title: "Add to Lite", symbol: "plus.circle.fill", fill: .indigo)
+            }
+        }
+        .padding(22).vuCard(fill: .vuCardElevated, radius: 24)
+    }
+
+    private func goalCard(_ goal: VaultSummary) -> some View {
+        VStack(alignment: .leading, spacing: 20) {
+            HStack {
+                Text("Active Goal Vault").font(.subheadline.weight(.semibold)).foregroundColor(.cyan)
+                Spacer()
+                Label("Locked", systemImage: "lock.fill")
+                    .font(.caption.weight(.bold)).foregroundColor(.white)
+                    .padding(.horizontal, 12).padding(.vertical, 7)
+                    .background(Color.white.opacity(0.14)).clipShape(Capsule())
+            }
+            HStack(spacing: 18) {
+                ZStack {
+                    Circle().stroke(Color.black.opacity(0.5), lineWidth: 12)
+                    Circle().trim(from: 0, to: min(max(goal.progressPercentage / 100, 0), 1))
+                        .stroke(Color.cyan, style: StrokeStyle(lineWidth: 12, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                    Text(String(format: "%.0f%%", goal.progressPercentage)).font(.headline.weight(.bold)).foregroundColor(.white)
+                }.frame(width: 92, height: 92)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(goal.name).font(.title3.weight(.bold)).foregroundColor(.white)
+                    Text("₹\(String(format: "%.2f", goal.balance))").font(.title2.weight(.bold)).foregroundColor(.white)
+                    Text("of ₹\(String(format: "%.0f", goal.target))").font(.subheadline).foregroundColor(.white.opacity(0.6))
+                }
+            }
+            Label("Micro-roundups active", systemImage: "sparkles")
+                .font(.caption.weight(.semibold)).foregroundColor(.mint)
+                .padding(.horizontal, 12).padding(.vertical, 9)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.black.opacity(0.2)).clipShape(Capsule())
+        }
+        .padding(22)
+        .background(LinearGradient(colors: [.indigo.opacity(0.82), .cyan.opacity(0.42)], startPoint: .topLeading, endPoint: .bottomTrailing))
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay { RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(Color.white.opacity(0.14), lineWidth: 1) }
+        .shadow(color: .indigo.opacity(0.28), radius: 16, y: 8)
+    }
+
+    private var emptyGoalCard: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "lock.open").font(.title).foregroundColor(.cyan)
+            Text("Create a goal to start saving").font(.subheadline.weight(.semibold)).foregroundColor(.white)
+        }.frame(maxWidth: .infinity).padding(28).vuCard(radius: 20)
+    }
+
+    private var roundupCard: some View {
+        HStack(spacing: 14) {
+            Image(systemName: "cart.fill").foregroundColor(.orange).frame(width: 48, height: 48).background(Color.orange.opacity(0.12)).clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Canteen Burger").font(.subheadline.weight(.bold)).foregroundColor(.white)
+                Text("Micro-roundup saved automatically").font(.caption).foregroundColor(.white.opacity(0.58))
+            }
+            Spacer()
+            Text("+₹7").font(.subheadline.weight(.bold)).foregroundColor(.mint)
+        }.padding(14).vuCard(radius: 16)
+    }
+
+    private var loginCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Image(systemName: "wallet.pass.fill").font(.system(size: 42)).foregroundColor(.cyan)
+            Text("Open your wallet").font(.title2.weight(.bold)).foregroundColor(.white)
+            Text("Enter your User ID to see your spending and goals.").font(.subheadline).foregroundColor(.white.opacity(0.62))
+            TextField("User ID", text: $userIdText).keyboardType(.numberPad).padding(14).background(Color.vuCardInset).clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous)).foregroundColor(.white)
+            Button("Load Dashboard") {
+                guard let id = Int(userIdText) else { return }
+                Task { await networkManager.fetchDashboard(userId: id) }
+            }.font(.headline).frame(maxWidth: .infinity).padding(15).buttonStyle(VUActionButtonStyle(color: .indigo))
+        }.padding(22).vuCard(radius: 20)
+    }
+}
+
+struct ActionTile: View {
+    let title: String
+    let symbol: String
+    let fill: Color
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: symbol)
+            Text(title).font(.subheadline.weight(.semibold)).lineLimit(1)
+        }.foregroundColor(.white).frame(maxWidth: .infinity).padding(.vertical, 14).background(fill).clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+    }
+}
+
+struct QuickAction: View {
+    let title: String
+    let symbol: String
+    let color: Color
+    var body: some View {
+        VStack(spacing: 8) {
+            Image(systemName: symbol).font(.title3).foregroundColor(color).frame(width: 56, height: 56).background(Color.vuCard).clipShape(Circle())
+            Text(title).font(.caption.weight(.medium)).foregroundColor(.white.opacity(0.78)).lineLimit(1).minimumScaleFactor(0.8)
+        }.frame(maxWidth: .infinity)
+    }
 }
 
 struct VaultCard: View {
     let vault: VaultSummary
-    
-    var vaultEmoji: String {
-        switch vault.type.lowercased() {
-        case "liquid":
-            return "💰"
-        case "goal":
-            return "🔒"
-        case "trip_escrow":
-            return "👥"
-        default:
-            return "🏦"
-        }
-    }
-    
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("\(vaultEmoji) \(vault.name)")
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.white)
-                
-                Spacer()
-                
-                if vault.target > 0 {
-                    Text("\(String(format: "%.1f", vault.progressPercentage))%")
-                        .font(.caption)
-                        .fontWeight(.bold)
-                        .foregroundColor(.cyan)
-                }
-            }
-            
-            Text("₹\(String(format: "%.2f", vault.balance))")
-                .font(.system(size: 20, weight: .bold, design: .default))
-                .foregroundColor(.white)
-            
-            if vault.target > 0 {
-                VStack(spacing: 6) {
-                    HStack {
-                        Text("Target: ₹\(String(format: "%.0f", vault.target))")
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                        Spacer()
-                    }
-                    
-                    GeometryReader { geometry in
-                        ZStack(alignment: .leading) {
-                            Rectangle()
-                                .fill(Color(red: 0.2, green: 0.2, blue: 0.3))
-                            
-                            Rectangle()
-                                .fill(
-                                    LinearGradient(
-                                        gradient: Gradient(colors: [.cyan, .blue]),
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
-                                )
-                                .frame(width: geometry.size.width * (vault.progressPercentage / 100))
-                        }
-                        .cornerRadius(4)
-                    }
-                    .frame(height: 6)
-                }
-            }
-        }
-        .padding(16)
-        .background(Color(red: 0.1, green: 0.1, blue: 0.2))
-        .cornerRadius(10)
+            HStack { Text(vault.name).font(.subheadline.weight(.semibold)).foregroundColor(.white); Spacer(); Text("\(String(format: "%.1f", vault.progressPercentage))%").font(.caption.weight(.bold)).foregroundColor(.cyan) }
+            Text("₹\(String(format: "%.2f", vault.balance))").font(.title3.weight(.bold)).foregroundColor(.white)
+            if vault.target > 0 { ProgressBar(progress: vault.progressPercentage) }
+        }.padding(16).vuCard(radius: 16)
     }
 }
 
-#Preview {
-    HomeView()
-}
+#Preview { HomeView() }

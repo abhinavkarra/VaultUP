@@ -11,15 +11,7 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                LinearGradient(
-                    gradient: Gradient(colors: [
-                        Color(red: 0.05, green: 0.05, blue: 0.15),
-                        Color(red: 0.1, green: 0.08, blue: 0.2)
-                    ]),
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
+                VUBackground()
                 
                 VStack {
                     // Header
@@ -58,18 +50,10 @@ struct SettingsView: View {
                                             .background(Color(red: 0.1, green: 0.1, blue: 0.2))
                                             .cornerRadius(8)
                                         
-                                        HStack(spacing: 8) {
-                                            Label("Running on localhost", systemImage: "checkmark.circle.fill")
-                                                .font(.caption)
-                                                .foregroundColor(.green)
-                                            Spacer()
-                                        }
-                                        .padding(.top, 8)
                                     }
                                 }
                                 .padding(16)
-                                .background(Color(red: 0.1, green: 0.1, blue: 0.2))
-                                .cornerRadius(12)
+                                .vuCard(radius: 16)
                             }
                             .padding(.horizontal, 20)
                             
@@ -175,8 +159,7 @@ struct SettingsView: View {
                                     }
                                 }
                                 .padding(16)
-                                .background(Color(red: 0.1, green: 0.1, blue: 0.2))
-                                .cornerRadius(12)
+                                .vuCard(radius: 16)
                             }
                             .padding(.horizontal, 20)
                             
@@ -296,15 +279,7 @@ struct DeviceInfoSheet: View {
     
     var body: some View {
         ZStack {
-            LinearGradient(
-                gradient: Gradient(colors: [
-                    Color(red: 0.05, green: 0.05, blue: 0.15),
-                    Color(red: 0.1, green: 0.08, blue: 0.2)
-                ]),
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+                        VUBackground()
             
             NavigationStack {
                 VStack(alignment: .leading, spacing: 16) {
