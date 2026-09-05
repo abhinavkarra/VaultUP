@@ -14,7 +14,7 @@ struct SettingsView: View {
     @AppStorage("student_name") private var studentName: String = "Abhinav Karra"
     @AppStorage("student_roll_number") private var studentRollNumber: String = "21BCE10482"
     @AppStorage("student_dob_timestamp") private var studentDOBTimestamp: Double = 1092528000 // Aug 15, 2004
-    @AppStorage("student_college") private var studentCollege: String = "Vellore Institute of Technology"
+    @AppStorage("student_college") private var studentCollege: String = "B V Raju Institute of Technology"
     
     @State private var showingEditProfile = false
     @State private var showingDeviceInfo = false

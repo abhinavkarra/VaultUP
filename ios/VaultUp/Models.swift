@@ -241,7 +241,7 @@ struct StudentProfile: Codable, Equatable {
         name: "Abhinav Karra",
         dateOfBirth: Calendar.current.date(from: DateComponents(year: 2004, month: 8, day: 15)) ?? Date(),
         rollNumber: "21BCE10482",
-        college: "Vellore Institute of Technology",
+        college: "B V Raju Institute of Technology",
         isVerified: true
     )
     
