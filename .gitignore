@@ -76,3 +76,17 @@ htmlcov/
 *.tmp
 temp/
 tmp/
+
+# Flutter and iOS generated files
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.symlinks/
+build/
+Pods/
+ephemeral/
+xcuserdata/
+Generated.xcconfig
+GeneratedPluginRegistrant.*
+local.properties
+*.iml
