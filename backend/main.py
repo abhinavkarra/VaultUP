@@ -67,6 +67,7 @@ class UserResponse(BaseModel):
     name: str
     email: str
     is_student_verified: bool
+    linked_bank_account: Optional[str] = None
     created_at: datetime
 
     class Config:
@@ -84,6 +85,7 @@ class VaultResponse(BaseModel):
     target_amount: float
     current_balance: float
     is_locked: bool
+    last_withdrawal_at: Optional[datetime] = None
     created_at: datetime
 
     class Config:
@@ -111,6 +113,16 @@ class SplitDepositRequest(BaseModel):
     liquid_vault_id: int
     goal_vault_id: int
     split_ratio: float = 0.3  # 30% to goal vault
+
+class LoginRequest(BaseModel):
+    phone: str
+
+class ConnectBankRequest(BaseModel):
+    account_number: str
+
+class VaultTransactionRequest(BaseModel):
+    amount: float
+
 
 # ==================== USER ENDPOINTS ====================
 
@@ -152,6 +164,44 @@ def get_user(user_id: int, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user
+
+@app.post("/api/users/login", response_model=UserResponse)
+def login_user(login_data: LoginRequest, db: Session = Depends(get_db)):
+    """Login user via phone number"""
+    user = db.query(User).filter(User.phone == login_data.phone).first()
+    if not user:
+        # For prototype: auto-create if not exists
+        user = User(
+            name="Test User",
+            email=f"{login_data.phone}@example.com",
+            phone=login_data.phone,
+            is_student_verified=True
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        # Create default liquid pocket
+        liquid_vault = Vault(
+            user_id=user.id,
+            name="VaultUp Lite ⚡️",
+            vault_type=VaultType.LIQUID,
+            target_amount=5000.0,
+            current_balance=0.0
+        )
+        db.add(liquid_vault)
+        db.commit()
+    return user
+
+@app.post("/api/users/{user_id}/connect-bank", response_model=UserResponse)
+def connect_bank(user_id: int, bank_data: ConnectBankRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.linked_bank_account = bank_data.account_number
+    db.commit()
+    db.refresh(user)
+    return user
+
 
 # ==================== VAULT ENDPOINTS ====================
 
@@ -195,6 +245,60 @@ def get_vault(vault_id: int, db: Session = Depends(get_db)):
     vault = db.query(Vault).filter(Vault.id == vault_id).first()
     if not vault:
         raise HTTPException(status_code=404, detail="Vault not found")
+    return vault
+
+@app.post("/api/vaults/{vault_id}/deposit", response_model=VaultResponse)
+def deposit_vault(vault_id: int, req: VaultTransactionRequest, db: Session = Depends(get_db)):
+    vault = db.query(Vault).filter(Vault.id == vault_id).first()
+    if not vault:
+        raise HTTPException(status_code=404, detail="Vault not found")
+    
+    vault.current_balance += req.amount
+    ledger = LedgerEntry(
+        user_id=vault.user_id,
+        transaction_ref=f"dep_{datetime.now().timestamp()}",
+        to_vault_id=vault.id,
+        amount=req.amount,
+        entry_type="deposit",
+        description="Manual Deposit"
+    )
+    db.add(ledger)
+    db.commit()
+    db.refresh(vault)
+    return vault
+
+@app.post("/api/vaults/{vault_id}/withdraw", response_model=VaultResponse)
+def withdraw_vault(vault_id: int, req: VaultTransactionRequest, db: Session = Depends(get_db)):
+    vault = db.query(Vault).filter(Vault.id == vault_id).first()
+    if not vault:
+        raise HTTPException(status_code=404, detail="Vault not found")
+    
+    if vault.current_balance < req.amount:
+        raise HTTPException(status_code=400, detail="Insufficient balance")
+
+    # 12 Hour cooling period check
+    if vault.last_withdrawal_at:
+        time_since = datetime.utcnow() - vault.last_withdrawal_at
+        if time_since < timedelta(hours=12):
+            remaining = timedelta(hours=12) - time_since
+            hours = int(remaining.total_seconds() // 3600)
+            mins = int((remaining.total_seconds() % 3600) // 60)
+            raise HTTPException(status_code=400, detail=f"Cooling period active. Try again in {hours}h {mins}m.")
+
+    vault.current_balance -= req.amount
+    vault.last_withdrawal_at = datetime.utcnow()
+    
+    ledger = LedgerEntry(
+        user_id=vault.user_id,
+        transaction_ref=f"wtd_{datetime.now().timestamp()}",
+        to_vault_id=vault.id, # Using to_vault_id as the vault reference (maybe negative amount)
+        amount=-req.amount,
+        entry_type="withdrawal",
+        description="Manual Withdrawal"
+    )
+    db.add(ledger)
+    db.commit()
+    db.refresh(vault)
     return vault
 
 # ==================== PAYMENT & ROUNDUP LOGIC ====================

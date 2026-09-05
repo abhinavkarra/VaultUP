@@ -8,6 +8,7 @@ struct HomeView: View {
     @State private var showingLoginSheet = false
     @State private var userName = ""
     @State private var userEmail = ""
+    @State private var showingTransactions = false
     
     var body: some View {
         NavigationStack {
@@ -42,9 +43,11 @@ struct HomeView: View {
                             Spacer()
                             
                             if networkManager.dashboard != nil {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(.green)
-                                    .font(.title3)
+                                Button(action: { showingTransactions = true }) {
+                                    Image(systemName: "list.bullet.rectangle.portrait")
+                                        .foregroundColor(.indigo)
+                                        .font(.title2)
+                                }
                             }
                         }
                     }
@@ -216,6 +219,10 @@ struct HomeView: View {
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
+            .sheet(isPresented: $showingTransactions) {
+                TransactionHistoryView()
+                    .environmentObject(networkManager)
+            }
         }
     }
 }

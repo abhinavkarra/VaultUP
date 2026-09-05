@@ -64,6 +64,50 @@ class NetworkManager: ObservableObject {
         }
     }
     
+    func login(phone: String) async {
+        let endpoint = "\(baseURL)/users/login"
+        let request = LoginRequest(phone: phone)
+        
+        await performRequest(
+            url: endpoint,
+            method: "POST",
+            body: request
+        ) { (result: Result<User, Error>) in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let user):
+                    self.currentUser = user
+                    self.userId = user.id
+                    self.errorMessage = nil
+                case .failure(let error):
+                    self.errorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+    
+    func connectBank(accountNumber: String) async {
+        guard let userId = userId else { return }
+        let endpoint = "\(baseURL)/users/\(userId)/connect-bank"
+        let request = ConnectBankRequest(accountNumber: accountNumber)
+        
+        await performRequest(
+            url: endpoint,
+            method: "POST",
+            body: request
+        ) { (result: Result<User, Error>) in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let user):
+                    self.currentUser = user
+                    self.errorMessage = nil
+                case .failure(let error):
+                    self.errorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+    
     // MARK: - Dashboard
     
     func fetchDashboard(userId: Int) async {
@@ -141,6 +185,64 @@ class NetworkManager: ObservableObject {
                 switch result {
                 case .success(let vaults):
                     self.vaults = vaults
+                    self.errorMessage = nil
+                case .failure(let error):
+                    self.errorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+    
+    func withdraw(vaultId: Int, amount: Float) async {
+        let endpoint = "\(baseURL)/vaults/\(vaultId)/withdraw"
+        let request = VaultTransactionRequest(amount: amount)
+        
+        DispatchQueue.main.async { self.isLoading = true }
+        
+        await performRequest(
+            url: endpoint,
+            method: "POST",
+            body: request
+        ) { (result: Result<Vault, Error>) in
+            DispatchQueue.main.async {
+                self.isLoading = false
+                switch result {
+                case .success(let updatedVault):
+                    if let index = self.vaults.firstIndex(where: { $0.id == updatedVault.id }) {
+                        self.vaults[index] = updatedVault
+                    }
+                    if let userId = self.userId {
+                        Task { await self.fetchDashboard(userId: userId) }
+                    }
+                    self.errorMessage = nil
+                case .failure(let error):
+                    self.errorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+    
+    func deposit(vaultId: Int, amount: Float) async {
+        let endpoint = "\(baseURL)/vaults/\(vaultId)/deposit"
+        let request = VaultTransactionRequest(amount: amount)
+        
+        DispatchQueue.main.async { self.isLoading = true }
+        
+        await performRequest(
+            url: endpoint,
+            method: "POST",
+            body: request
+        ) { (result: Result<Vault, Error>) in
+            DispatchQueue.main.async {
+                self.isLoading = false
+                switch result {
+                case .success(let updatedVault):
+                    if let index = self.vaults.firstIndex(where: { $0.id == updatedVault.id }) {
+                        self.vaults[index] = updatedVault
+                    }
+                    if let userId = self.userId {
+                        Task { await self.fetchDashboard(userId: userId) }
+                    }
                     self.errorMessage = nil
                 case .failure(let error):
                     self.errorMessage = error.localizedDescription

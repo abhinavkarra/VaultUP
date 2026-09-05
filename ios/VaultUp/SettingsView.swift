@@ -7,6 +7,9 @@ struct SettingsView: View {
     @State private var appVersion = "1.0.0"
     @State private var backendURL = "http://localhost:8000"
     @State private var showingDeviceInfo = false
+    @EnvironmentObject var networkManager: NetworkManager
+    @State private var bankName = ""
+    @State private var isConnectingBank = false
     
     var body: some View {
         NavigationStack {
@@ -72,6 +75,70 @@ struct SettingsView: View {
                                 .cornerRadius(12)
                             }
                             .padding(.horizontal, 20)
+                            
+                            // Bank Connection
+                            if let user = networkManager.currentUser {
+                                VStack(alignment: .leading, spacing: 12) {
+                                    Text("Bank Account")
+                                        .font(.headline)
+                                        .foregroundColor(.white)
+                                    
+                                    VStack(alignment: .leading, spacing: 12) {
+                                        if let linkedBank = user.linkedBankAccount {
+                                            HStack {
+                                                Image(systemName: "building.columns.fill")
+                                                    .foregroundColor(.green)
+                                                Text(linkedBank)
+                                                    .font(.subheadline)
+                                                    .foregroundColor(.white)
+                                                Spacer()
+                                                Text("Connected")
+                                                    .font(.caption)
+                                                    .foregroundColor(.green)
+                                            }
+                                        } else {
+                                            Text("No bank account connected")
+                                                .font(.subheadline)
+                                                .foregroundColor(.gray)
+                                            
+                                            HStack {
+                                                TextField("Enter Bank Name", text: $bankName)
+                                                    .padding(12)
+                                                    .background(Color(red: 0.15, green: 0.15, blue: 0.25))
+                                                    .cornerRadius(8)
+                                                    .foregroundColor(.white)
+                                                
+                                                Button(action: {
+                                                    if !bankName.isEmpty {
+                                                        isConnectingBank = true
+                                                        Task {
+                                                            await networkManager.connectBank(userId: user.id, bankName: bankName)
+                                                            isConnectingBank = false
+                                                        }
+                                                    }
+                                                }) {
+                                                    if isConnectingBank {
+                                                        ProgressView().tint(.white)
+                                                    } else {
+                                                        Text("Connect")
+                                                            .font(.headline)
+                                                    }
+                                                }
+                                                .frame(width: 100)
+                                                .padding(12)
+                                                .background(bankName.isEmpty ? Color.gray : Color.indigo)
+                                                .foregroundColor(.white)
+                                                .cornerRadius(8)
+                                                .disabled(bankName.isEmpty || isConnectingBank)
+                                            }
+                                        }
+                                    }
+                                    .padding(16)
+                                    .background(Color(red: 0.1, green: 0.1, blue: 0.2))
+                                    .cornerRadius(12)
+                                }
+                                .padding(.horizontal, 20)
+                            }
                             
                             // Features Section
                             VStack(alignment: .leading, spacing: 12) {

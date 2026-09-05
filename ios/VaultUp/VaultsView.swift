@@ -83,7 +83,10 @@ struct VaultsView: View {
                             } else {
                                 VStack(spacing: 12) {
                                     ForEach(networkManager.vaults) { vault in
-                                        VaultDetailCard(vault: vault)
+                                        NavigationLink(destination: VaultDetailView(vault: vault).environmentObject(networkManager)) {
+                                            VaultDetailCard(vault: vault)
+                                        }
+                                        .buttonStyle(PlainButtonStyle())
                                     }
                                 }
                                 .padding(.horizontal, 20)

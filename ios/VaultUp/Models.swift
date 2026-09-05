@@ -10,12 +10,14 @@ struct User: Codable {
     let email: String
     let phone: String?
     let isStudentVerified: Bool
+    let linkedBankAccount: String?
     let createdAt: String
     
     enum CodingKeys: String, CodingKey {
         case id, name, email, phone
         case createdAt = "created_at"
         case isStudentVerified = "is_student_verified"
+        case linkedBankAccount = "linked_bank_account"
     }
 }
 
@@ -27,6 +29,7 @@ struct Vault: Codable, Identifiable {
     let targetAmount: Float
     let currentBalance: Float
     let isLocked: Bool
+    let lastWithdrawalAt: String?
     let createdAt: String
     
     enum CodingKeys: String, CodingKey {
@@ -36,6 +39,7 @@ struct Vault: Codable, Identifiable {
         case targetAmount = "target_amount"
         case currentBalance = "current_balance"
         case isLocked = "is_locked"
+        case lastWithdrawalAt = "last_withdrawal_at"
     }
     
     var progressPercentage: Double {
@@ -172,6 +176,22 @@ struct PaymentCreateRequest: Codable {
         case merchantName = "merchant_name"
         case description
     }
+}
+
+struct LoginRequest: Codable {
+    let phone: String
+}
+
+struct ConnectBankRequest: Codable {
+    let accountNumber: String
+    
+    enum CodingKeys: String, CodingKey {
+        case accountNumber = "account_number"
+    }
+}
+
+struct VaultTransactionRequest: Codable {
+    let amount: Float
 }
 
 // MARK: - API Response Models

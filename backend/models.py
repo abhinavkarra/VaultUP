@@ -21,6 +21,7 @@ class User(Base):
     razorpay_customer_id = Column(String, nullable=True)
     is_student_verified = Column(Boolean, default=False)
     student_email = Column(String, nullable=True)
+    linked_bank_account = Column(String, nullable=True)  # Mock bank account
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -38,6 +39,7 @@ class Vault(Base):
     linked_route_acc = Column(String, nullable=True)  # Razorpay linked account ID
     is_locked = Column(Boolean, default=False)  # For goal vaults: prevent withdrawal before target
     cooldown_until = Column(DateTime, nullable=True)  # When emergency withdraw becomes available
+    last_withdrawal_at = Column(DateTime, nullable=True) # To enforce 12 hr cooling period
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
