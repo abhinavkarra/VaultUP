@@ -67,6 +67,13 @@ struct TransactionHistoryView: View {
 
 struct TransactionRow: View {
     let entry: LedgerEntry
+
+    var title: String {
+        if entry.entryType.lowercased() == "roundup" {
+            return "Goal Vault Roundup"
+        }
+        return entry.description ?? entry.entryType.capitalized
+    }
     
     var iconName: String {
         switch entry.entryType.lowercased() {
@@ -92,7 +99,7 @@ struct TransactionRow: View {
                 .foregroundColor(iconColor)
             
             VStack(alignment: .leading, spacing: 4) {
-                Text(entry.description ?? entry.entryType.capitalized)
+                Text(title)
                     .font(.subheadline)
                     .fontWeight(.semibold)
                     .foregroundColor(.white)

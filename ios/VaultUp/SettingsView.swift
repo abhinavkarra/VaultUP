@@ -112,7 +112,7 @@ struct SettingsView: View {
                                                     if !bankName.isEmpty {
                                                         isConnectingBank = true
                                                         Task {
-                                                            await networkManager.connectBank(userId: user.id, bankName: bankName)
+                                                            await networkManager.connectBank(accountNumber: bankName)
                                                             isConnectingBank = false
                                                         }
                                                     }

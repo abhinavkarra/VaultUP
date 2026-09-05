@@ -4,12 +4,11 @@
 import SwiftUI
 
 struct VaultsView: View {
-    @StateObject private var networkManager = NetworkManager()
+    @EnvironmentObject private var networkManager: NetworkManager
     @State private var showingCreateSheet = false
     @State private var newVaultName = ""
     @State private var newVaultType = "goal"
     @State private var newVaultTarget = ""
-    @State private var userId = 1
     
     var body: some View {
         NavigationStack {
@@ -87,6 +86,15 @@ struct VaultsView: View {
                                             VaultDetailCard(vault: vault)
                                         }
                                         .buttonStyle(PlainButtonStyle())
+                                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                            if vault.vaultType.lowercased() != "liquid" {
+                                                Button(role: .destructive) {
+                                                    Task { await networkManager.deleteVault(vaultId: vault.id) }
+                                                } label: {
+                                                    Label("Delete", systemImage: "trash")
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                                 .padding(.horizontal, 20)
@@ -215,8 +223,10 @@ struct VaultsView: View {
                 .presentationDetents([.medium])
             }
             .onAppear {
-                Task {
-                    await networkManager.fetchVaults(userId: userId)
+                if let userId = networkManager.currentUser?.id {
+                    Task {
+                        await networkManager.fetchVaults(userId: userId)
+                    }
                 }
             }
         }

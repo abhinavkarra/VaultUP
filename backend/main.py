@@ -247,6 +247,19 @@ def get_vault(vault_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Vault not found")
     return vault
 
+@app.delete("/api/vaults/{vault_id}")
+def delete_vault(vault_id: int, db: Session = Depends(get_db)):
+    vault = db.query(Vault).filter(Vault.id == vault_id).first()
+    if not vault:
+        raise HTTPException(status_code=404, detail="Vault not found")
+    if vault.vault_type == VaultType.LIQUID:
+        raise HTTPException(status_code=400, detail="The liquid vault cannot be deleted")
+    if vault.current_balance > 0:
+        raise HTTPException(status_code=400, detail="Move the vault balance before deleting it")
+    db.delete(vault)
+    db.commit()
+    return {"status": "success", "vault_id": vault_id}
+
 @app.post("/api/vaults/{vault_id}/deposit", response_model=VaultResponse)
 def deposit_vault(vault_id: int, req: VaultTransactionRequest, db: Session = Depends(get_db)):
     vault = db.query(Vault).filter(Vault.id == vault_id).first()
@@ -322,8 +335,8 @@ def allocate_to_vaults(
     """
     Allocate payment amount between liquid and goal vaults with roundup
     """
-    liquid_amount = round(amount * liquid_percentage, 2)
-    goal_direct = round(amount * (1 - liquid_percentage), 2)
+    liquid_amount = round(amount, 2)
+    goal_direct = 0.0
     roundup_amount = calculate_roundup(amount, step=10)
     
     return {
@@ -383,6 +396,17 @@ def create_payment_order(payment_req: PaymentRequest, user_id: int, db: Session 
             "currency": order_payload["currency"]
         }
         
+        goal_vault = db.query(Vault).filter(Vault.user_id == user_id, Vault.vault_type != VaultType.LIQUID).first()
+        transaction_ref = f"sim_{datetime.now().timestamp()}"
+        merchant_label = payment_req.merchant_name or "Direct Payment"
+        liquid_vault.current_balance += allocation["liquid_allocation"]
+        db.add(LedgerEntry(user_id=user_id, transaction_ref=f"{transaction_ref}_liquid", to_vault_id=liquid_vault.id, amount=allocation["liquid_allocation"], entry_type="deposit", description="Payment at " + merchant_label))
+        goal_amount = allocation["roundup_amount"]
+        if goal_vault and goal_amount > 0:
+            goal_vault.current_balance += goal_amount
+            db.add(LedgerEntry(user_id=user_id, transaction_ref=f"{transaction_ref}_goal", to_vault_id=goal_vault.id, amount=goal_amount, entry_type="roundup", description="Goal saving from " + merchant_label))
+        db.add(Transaction(user_id=user_id, razorpay_payment_id=transaction_ref, razorpay_order_id=order["id"], amount=payment_req.amount, status="captured", liquid_allocation=allocation["liquid_allocation"], goal_allocation=allocation["goal_direct_allocation"], roundup_amount=allocation["roundup_amount"], merchant_name=payment_req.merchant_name, description=payment_req.description))
+        db.commit()
         return {
             "order_id": order["id"],
             "amount": order["amount"],
@@ -543,7 +567,7 @@ async def razorpay_webhook(
                 Vault.vault_type == VaultType.GOAL
             ).order_by(Vault.created_at.desc()).first()
 
-            goal_amount = goal_allocation + roundup_amount
+            goal_amount = roundup_amount
             if goal_vault and goal_amount > 0:
                 goal_vault.current_balance += goal_amount
 

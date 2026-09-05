@@ -4,10 +4,7 @@
 import SwiftUI
 
 struct HomeView: View {
-    @StateObject private var networkManager = NetworkManager()
-    @State private var showingLoginSheet = false
-    @State private var userName = ""
-    @State private var userEmail = ""
+    @EnvironmentObject private var networkManager: NetworkManager
     @State private var showingTransactions = false
     
     var body: some View {
@@ -57,50 +54,12 @@ struct HomeView: View {
                     ScrollView {
                         VStack(spacing: 20) {
                             if networkManager.dashboard == nil {
-                                // Login prompt
                                 VStack(spacing: 16) {
-                                    Image(systemName: "wallet.pass.fill")
-                                        .font(.system(size: 48))
-                                        .foregroundColor(.indigo)
-                                    
-                                    Text("Welcome to VaultUp")
-                                        .font(.title2)
-                                        .fontWeight(.bold)
+                                    ProgressView("Loading your VaultUp account...")
+                                        .tint(.white)
                                         .foregroundColor(.white)
-                                    
-                                    Text("Enter your User ID to continue")
-                                        .font(.subheadline)
-                                        .foregroundColor(.gray)
-                                    
-                                    TextField("Enter User ID", text: $userName)
-                                        .keyboardType(.numberPad)
-                                        .padding(12)
-                                        .background(Color(red: 0.15, green: 0.15, blue: 0.25))
-                                        .cornerRadius(8)
-                                        .foregroundColor(.white)
-                                    
-                                    Button(action: {
-                                        if !userName.isEmpty, let userId = Int(userName) {
-                                            Task {
-                                                networkManager.setUserId(userId)
-                                                await networkManager.fetchDashboard(userId: userId)
-                                            }
-                                        }
-                                    }) {
-                                        Text("Load Dashboard")
-                                            .font(.headline)
-                                            .foregroundColor(.white)
-                                            .frame(maxWidth: .infinity)
-                                            .padding(12)
-                                            .background(Color.indigo)
-                                            .cornerRadius(8)
-                                    }
                                 }
                                 .padding(24)
-                                .background(Color(red: 0.1, green: 0.1, blue: 0.2))
-                                .cornerRadius(12)
-                                .padding(.horizontal, 20)
-                                .padding(.top, 20)
                             } else if let dashboard = networkManager.dashboard {
                                 // Dashboard Content
                                 

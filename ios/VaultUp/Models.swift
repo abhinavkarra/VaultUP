@@ -194,6 +194,16 @@ struct VaultTransactionRequest: Codable {
     let amount: Float
 }
 
+struct DeleteVaultResponse: Codable {
+    let status: String
+    let vaultId: Int
+
+    enum CodingKeys: String, CodingKey {
+        case status
+        case vaultId = "vault_id"
+    }
+}
+
 // MARK: - API Response Models
 struct APIResponse<T: Codable>: Codable {
     let status: String

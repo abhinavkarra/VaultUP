@@ -8,11 +8,17 @@ class NetworkManager: ObservableObject {
     @Published var dashboard: Dashboard?
     @Published var vaults: [Vault] = []
     @Published var ledger: [LedgerEntry] = []
+    @Published var lastPaymentOrder: PaymentOrder?
     @Published var isLoading = false
     @Published var errorMessage: String?
     
     private let baseURL = "http://localhost:8000/api"
     private var userId: Int?
+
+    func startDemoSession() async {
+        await fetchUser(userId: 1)
+        await fetchDashboard(userId: 1)
+    }
     
     // MARK: - User Management
     
@@ -127,7 +133,6 @@ class NetworkManager: ObservableObject {
                 switch result {
                 case .success(let dashboard):
                     self.dashboard = dashboard
-                    self.vaults = []  // Clear old vaults
                     self.errorMessage = nil
                 case .failure(let error):
                     self.errorMessage = error.localizedDescription
@@ -193,6 +198,21 @@ class NetworkManager: ObservableObject {
         }
     }
     
+    func deleteVault(vaultId: Int) async {
+        let endpoint = "\(baseURL)/vaults/\(vaultId)"
+        await performRequest(url: endpoint, method: "DELETE") { (result: Result<DeleteVaultResponse, Error>) in
+            DispatchQueue.main.async {
+                switch result {
+                case .success:
+                    self.vaults.removeAll { $0.id == vaultId }
+                    self.errorMessage = nil
+                case .failure(let error):
+                    self.errorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+
     func withdraw(vaultId: Int, amount: Float) async {
         let endpoint = "\(baseURL)/vaults/\(vaultId)/withdraw"
         let request = VaultTransactionRequest(amount: amount)
@@ -253,7 +273,7 @@ class NetworkManager: ObservableObject {
     
     // MARK: - Payments
     
-    func createPaymentOrder(amount: Float, liquidPercentage: Float = 0.70, merchantName: String) async {
+    func createPaymentOrder(amount: Float, liquidPercentage: Float = 1.0, merchantName: String) async {
         guard let userId = userId else {
             errorMessage = "User not logged in"
             return
@@ -281,6 +301,7 @@ class NetworkManager: ObservableObject {
                 self.isLoading = false
                 switch result {
                 case .success(let order):
+                    self.lastPaymentOrder = order
                     print("Payment order created: \(order.orderId)")
                     print("Roundup: ₹\(order.allocation.roundupAmount)")
                     self.errorMessage = nil
@@ -288,6 +309,7 @@ class NetworkManager: ObservableObject {
                     if let userId = self.userId {
                         Task {
                             await self.fetchDashboard(userId: userId)
+                            await self.fetchVaults(userId: userId)
                         }
                     }
                 case .failure(let error):

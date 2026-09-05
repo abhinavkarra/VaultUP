@@ -4,15 +4,12 @@
 import SwiftUI
 
 struct PaymentView: View {
-    @StateObject private var networkManager = NetworkManager()
+    @EnvironmentObject private var networkManager: NetworkManager
     @State private var amount = ""
     @State private var merchantName = ""
-    @State private var selectedMerchant = "Canteen"
-    @State private var userId = 1
     @State private var showingPaymentConfirmation = false
-    @State private var lastPaymentOrder: PaymentOrder?
     
-    let merchants = ["Canteen", "Stationery", "Books", "Transport", "Coffee", "Movie", "Restaurant", "Gym", "Shopping", "Other"]
+    let merchants = [("Canteen", "fork.knife"), ("Stationery", "pencil"), ("Books", "book.fill"), ("Transport", "bus.fill"), ("Coffee", "cup.and.saucer.fill"), ("Movie", "film"), ("Restaurant", "fork.knife.circle.fill"), ("Gym", "figure.run"), ("Shopping", "bag.fill"), ("Other", "ellipsis.circle.fill")]
     
     var calculatedRoundup: Float {
         guard let amountValue = Float(amount), amountValue > 0 else { return 0 }
@@ -70,7 +67,8 @@ struct PaymentView: View {
                                     TextField("0.00", text: $amount)
                                         .font(.system(size: 28, weight: .bold))
                                         .keyboardType(.decimalPad)
-                                        .foregroundColor(.white)
+                                        .foregroundColor(.primary)
+                                        .tint(.indigo)
                                     
                                     Spacer()
                                 }
@@ -141,14 +139,22 @@ struct PaymentView: View {
                                     .font(.subheadline)
                                     .fontWeight(.semibold)
                                     .foregroundColor(.white)
-                                
-                                Picker("Merchant", selection: $merchantName) {
-                                    ForEach(merchants, id: \.self) { merchant in
-                                        Text(merchant).tag(merchant)
+
+                                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                                    ForEach(merchants, id: \.0) { merchant, icon in
+                                        Button { merchantName = merchant } label: {
+                                            Image(systemName: icon)
+                                                .font(.title3)
+                                                .foregroundColor(merchantName == merchant ? .white : .gray)
+                                                .frame(width: 42, height: 42)
+                                                .background(merchantName == merchant ? Color.indigo : Color.white.opacity(0.08))
+                                                .cornerRadius(10)
+                                        }
+                                        .accessibilityLabel(merchant)
+                                        .frame(maxWidth: .infinity)
+                                        .buttonStyle(.plain)
                                     }
                                 }
-                                .pickerStyle(.segmented)
-                                .tint(.indigo)
                             }
                             .padding(.horizontal, 20)
                             
@@ -164,11 +170,11 @@ struct PaymentView: View {
                                 .foregroundColor(.cyan)
                                 
                                 VStack(alignment: .leading, spacing: 8) {
-                                    Label("Payment amount goes to Liquid Pocket", systemImage: "checkmark.circle")
+                                    Label("Full payment amount goes to Liquid Pocket", systemImage: "checkmark.circle")
                                         .font(.caption)
                                         .foregroundColor(.gray)
                                     
-                                    Label("Roundup amount saved to Goal Vault", systemImage: "checkmark.circle")
+                                    Label("Only the roundup is saved to Goal Vault", systemImage: "checkmark.circle")
                                         .font(.caption)
                                         .foregroundColor(.gray)
                                     
@@ -237,13 +243,14 @@ struct PaymentView: View {
                 }
             }
             .sheet(isPresented: $showingPaymentConfirmation) {
-                if let order = lastPaymentOrder {
+                if let order = networkManager.lastPaymentOrder {
                     PaymentSuccessSheet(order: order, isPresented: $showingPaymentConfirmation)
                 }
             }
             .onAppear {
-                networkManager.setUserId(userId)
+                if networkManager.currentUser == nil { Task { await networkManager.startDemoSession() } }
             }
+            .preferredColorScheme(.light)
         }
     }
     
@@ -253,12 +260,12 @@ struct PaymentView: View {
         Task {
             await networkManager.createPaymentOrder(
                 amount: amountValue,
-                liquidPercentage: 0.70,
+                liquidPercentage: 1.0,
                 merchantName: merchantName
             )
             
             if networkManager.errorMessage == nil {
-                showingPaymentConfirmation = true
+                showingPaymentConfirmation = networkManager.lastPaymentOrder != nil
                 amount = ""
                 merchantName = ""
             }
@@ -322,16 +329,7 @@ struct PaymentSuccessSheet: View {
                     }
                     
                     HStack {
-                        Text("Goal Vault")
-                            .foregroundColor(.gray)
-                        Spacer()
-                        Text("₹\(String(format: "%.2f", order.allocation.goalDirectAllocation))")
-                            .foregroundColor(.green)
-                            .fontWeight(.semibold)
-                    }
-                    
-                    HStack {
-                        Text("Auto-Roundup")
+                        Text("Goal Vault (Roundup)")
                             .foregroundColor(.gray)
                         Spacer()
                         Text("₹\(String(format: "%.2f", order.allocation.roundupAmount))")
