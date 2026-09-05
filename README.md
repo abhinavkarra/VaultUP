@@ -80,4 +80,4 @@ This repository is an educational prototype. Before handling real money, it need
 
 ## License
 
-No license has been selected for this project yet.
+This project is licensed under the [MIT License](LICENSE).
