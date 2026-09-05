@@ -179,7 +179,21 @@ struct PaymentCreateRequest: Codable {
 }
 
 struct LoginRequest: Codable {
-    let phone: String
+    var identifier: String?
+    var phone: String?
+    var email: String?
+    
+    init(phone: String) {
+        self.identifier = phone
+        self.phone = phone
+        self.email = nil
+    }
+    
+    init(identifier: String) {
+        self.identifier = identifier
+        self.phone = identifier
+        self.email = identifier
+    }
 }
 
 struct ConnectBankRequest: Codable {
@@ -213,4 +227,27 @@ struct APIResponse<T: Codable>: Codable {
 
 struct ErrorResponse: Codable {
     let detail: String
+}
+
+// MARK: - Profile Model
+struct StudentProfile: Codable, Equatable {
+    var name: String
+    var dateOfBirth: Date
+    var rollNumber: String
+    var college: String
+    var isVerified: Bool
+    
+    static let defaultProfile = StudentProfile(
+        name: "Abhinav Karra",
+        dateOfBirth: Calendar.current.date(from: DateComponents(year: 2004, month: 8, day: 15)) ?? Date(),
+        rollNumber: "21BCE10482",
+        college: "Vellore Institute of Technology",
+        isVerified: true
+    )
+    
+    var formattedDOB: String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        return formatter.string(from: dateOfBirth)
+    }
 }

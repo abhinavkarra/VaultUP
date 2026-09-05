@@ -1,20 +1,33 @@
 // PaymentView.swift
-// Payment processing with roundup
+// Payment processing with micro-roundup engine and luxury fintech UI
 
 import SwiftUI
 
 struct PaymentView: View {
     @EnvironmentObject private var networkManager: NetworkManager
+    @Environment(\.colorScheme) private var colorScheme
     @State private var amount = ""
-    @State private var merchantName = ""
+    @State private var merchantName = "Canteen"
     @State private var showingPaymentConfirmation = false
     
-    let merchants = [("Canteen", "fork.knife"), ("Stationery", "pencil"), ("Books", "book.fill"), ("Transport", "bus.fill"), ("Coffee", "cup.and.saucer.fill"), ("Movie", "film"), ("Restaurant", "fork.knife.circle.fill"), ("Gym", "figure.run"), ("Shopping", "bag.fill"), ("Other", "ellipsis.circle.fill")]
+    let merchants = [
+        ("Canteen", "fork.knife", Color.orange),
+        ("Stationery", "pencil.and.ruler.fill", Color.blue),
+        ("Books", "book.fill", Color.vuWarning),
+        ("Transport", "bus.fill", Color.vuCyan),
+        ("Coffee", "cup.and.saucer.fill", Color.brown),
+        ("Movie", "film.fill", Color.purple),
+        ("Dining", "takeoutbag.and.cup.and.straw.fill", Color.pink),
+        ("Gym", "figure.run", Color.vuSuccess),
+        ("Shopping", "bag.fill", Color.vuAccent),
+        ("Other", "ellipsis.circle.fill", Color.gray)
+    ]
     
     var calculatedRoundup: Float {
         guard let amountValue = Float(amount), amountValue > 0 else { return 0 }
         let ceiling = ceil(amountValue / 10) * 10
-        return ceiling - amountValue
+        let diff = ceiling - amountValue
+        return diff == 0 ? 10.0 : diff
     }
     
     var totalAmount: Float {
@@ -25,233 +38,312 @@ struct PaymentView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                LinearGradient(
-                    gradient: Gradient(colors: [
-                        Color(red: 0.05, green: 0.05, blue: 0.15),
-                        Color(red: 0.1, green: 0.08, blue: 0.2)
-                    ]),
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
+                VUBackground()
                 
-                VStack {
+                VStack(spacing: 0) {
                     // Header
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Pay & Save")
-                            .font(.title2)
-                            .fontWeight(.bold)
-                            .foregroundColor(.white)
-                        Text("Make a payment and auto-save spare change")
-                            .font(.subheadline)
-                            .foregroundColor(.gray)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 16)
+                    headerView
                     
-                    ScrollView {
-                        VStack(spacing: 24) {
+                    ScrollView(showsIndicators: false) {
+                        VStack(spacing: 20) {
                             // Amount Input Card
-                            VStack(alignment: .leading, spacing: 16) {
-                                Text("Payment Amount")
-                                    .font(.subheadline)
-                                    .fontWeight(.semibold)
-                                    .foregroundColor(.white)
-                                
-                                HStack(spacing: 8) {
-                                    Text("₹")
-                                        .font(.system(size: 28, weight: .bold))
-                                        .foregroundColor(.indigo)
-                                    
-                                    TextField("0.00", text: $amount)
-                                        .font(.system(size: 28, weight: .bold))
-                                        .keyboardType(.decimalPad)
-                                        .foregroundColor(.primary)
-                                        .tint(.indigo)
-                                    
-                                    Spacer()
-                                }
-                                
-                                Divider()
-                                    .background(Color(red: 0.2, green: 0.2, blue: 0.3))
-                            }
-                            .padding(20)
-                            .background(Color(red: 0.1, green: 0.1, blue: 0.2))
-                            .cornerRadius(12)
-                            .padding(.horizontal, 20)
+                            amountInputCard
                             
-                            // Roundup Preview
-                            if let amountValue = Float(amount), amountValue > 0 {
-                                VStack(spacing: 12) {
-                                    HStack {
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text("Payment Amount")
-                                                .font(.subheadline)
-                                                .foregroundColor(.gray)
-                                            Text("₹\(String(format: "%.2f", amountValue))")
-                                                .font(.headline)
-                                                .foregroundColor(.white)
-                                        }
-                                        Spacer()
-                                    }
-                                    
-                                    HStack {
-                                        Image(systemName: "plus.circle")
-                                            .foregroundColor(.green)
-                                        Text("Auto-Roundup Savings")
-                                            .font(.subheadline)
-                                            .foregroundColor(.green)
-                                        Spacer()
-                                        Text("₹\(String(format: "%.2f", calculatedRoundup))")
-                                            .font(.headline)
-                                            .fontWeight(.bold)
-                                            .foregroundColor(.green)
-                                    }
-                                    .padding(12)
-                                    .background(Color(red: 0.1, green: 0.2, blue: 0.1))
-                                    .cornerRadius(8)
-                                    
-                                    Divider()
-                                        .background(Color(red: 0.2, green: 0.2, blue: 0.3))
-                                    
-                                    HStack {
-                                        Text("Total to Charge")
-                                            .font(.subheadline)
-                                            .fontWeight(.semibold)
-                                            .foregroundColor(.white)
-                                        Spacer()
-                                        Text("₹\(String(format: "%.2f", totalAmount))")
-                                            .font(.title3)
-                                            .fontWeight(.bold)
-                                            .foregroundColor(.cyan)
-                                    }
-                                }
-                                .padding(16)
-                                .background(Color(red: 0.12, green: 0.12, blue: 0.22))
-                                .cornerRadius(12)
-                                .padding(.horizontal, 20)
-                            }
+                            // Preset chips
+                            presetChips
+                            
+                            // Micro-Roundup Visualization Card
+                            roundupBreakdownCard
                             
                             // Merchant Selection
-                            VStack(alignment: .leading, spacing: 12) {
-                                Text("Merchant")
-                                    .font(.subheadline)
-                                    .fontWeight(.semibold)
-                                    .foregroundColor(.white)
-
-                                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                                    ForEach(merchants, id: \.0) { merchant, icon in
-                                        Button { merchantName = merchant } label: {
-                                            Image(systemName: icon)
-                                                .font(.title3)
-                                                .foregroundColor(merchantName == merchant ? .white : .gray)
-                                                .frame(width: 42, height: 42)
-                                                .background(merchantName == merchant ? Color.indigo : Color.white.opacity(0.08))
-                                                .cornerRadius(10)
-                                        }
-                                        .accessibilityLabel(merchant)
-                                        .frame(maxWidth: .infinity)
-                                        .buttonStyle(.plain)
-                                    }
-                                }
-                            }
-                            .padding(.horizontal, 20)
+                            merchantSelectionCard
                             
-                            // Info Card
-                            VStack(alignment: .leading, spacing: 12) {
-                                HStack {
-                                    Image(systemName: "info.circle.fill")
-                                        .foregroundColor(.cyan)
-                                    Text("How It Works")
-                                        .font(.subheadline)
-                                        .fontWeight(.semibold)
-                                }
-                                .foregroundColor(.cyan)
-                                
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Label("Full payment amount goes to Liquid Pocket", systemImage: "checkmark.circle")
-                                        .font(.caption)
-                                        .foregroundColor(.gray)
-                                    
-                                    Label("Only the roundup is saved to Goal Vault", systemImage: "checkmark.circle")
-                                        .font(.caption)
-                                        .foregroundColor(.gray)
-                                    
-                                    Label("Zero hallucination - math is always exact", systemImage: "checkmark.circle")
-                                        .font(.caption)
-                                        .foregroundColor(.gray)
-                                }
-                            }
-                            .padding(16)
-                            .background(Color(red: 0.1, green: 0.15, blue: 0.2))
-                            .cornerRadius(12)
-                            .padding(.horizontal, 20)
+                            // How Roundup Works note
+                            howItWorksCard
                             
-                            // Pay Button
-                            Button(action: processPayment) {
-                                if networkManager.isLoading {
-                                    ProgressView()
-                                        .tint(.white)
-                                        .frame(maxWidth: .infinity)
-                                        .padding(16)
-                                } else {
-                                    HStack {
-                                        Image(systemName: "creditcard.fill")
-                                        Text("Process Payment")
-                                            .font(.headline)
-                                    }
-                                    .foregroundColor(.white)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(16)
-                                    .background(
-                                        LinearGradient(
-                                            gradient: Gradient(colors: [.indigo, .blue]),
-                                            startPoint: .leading,
-                                            endPoint: .trailing
-                                        )
-                                    )
-                                    .cornerRadius(12)
-                                }
-                            }
-                            .disabled(amount.isEmpty || merchantName.isEmpty || networkManager.isLoading)
-                            .opacity((amount.isEmpty || merchantName.isEmpty) ? 0.5 : 1.0)
-                            .padding(.horizontal, 20)
-                            .padding(.top, 8)
+                            // Process Payment Button
+                            processPaymentButton
                             
                             if let error = networkManager.errorMessage {
-                                VStack {
-                                    HStack {
-                                        Image(systemName: "exclamationmark.circle.fill")
-                                            .foregroundColor(.red)
-                                        Text(error)
-                                            .font(.subheadline)
-                                            .foregroundColor(.red)
-                                        Spacer()
-                                    }
-                                }
-                                .padding(12)
-                                .background(Color(red: 0.25, green: 0.1, blue: 0.1))
-                                .cornerRadius(8)
-                                .padding(.horizontal, 20)
+                                errorMessageView(error: error)
                             }
                             
-                            Spacer()
-                                .frame(height: 20)
+                            Spacer().frame(height: 30)
                         }
+                        .padding(.horizontal, 20)
+                        .padding(.top, 10)
                     }
                 }
             }
+            .navigationBarHidden(true)
             .sheet(isPresented: $showingPaymentConfirmation) {
                 if let order = networkManager.lastPaymentOrder {
                     PaymentSuccessSheet(order: order, isPresented: $showingPaymentConfirmation)
                 }
             }
-            .onAppear {
-                if networkManager.currentUser == nil { Task { await networkManager.startDemoSession() } }
-            }
-            .preferredColorScheme(.light)
+
         }
+    }
+    
+    // MARK: - Header
+    private var headerView: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Pay & Auto-Save")
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundColor(.vuTextPrimary)
+                Text("Every spend rounds up to your goal vault")
+                    .font(.subheadline)
+                    .foregroundColor(.vuTextSecondary)
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 16)
+        .padding(.bottom, 12)
+    }
+    
+    // MARK: - Amount Input Card
+    private var amountInputCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text("Bill Amount")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.vuTextSecondary)
+                
+                Spacer()
+                
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(Color.vuSuccess)
+                        .frame(width: 6, height: 6)
+                    Text("Liquid Balance Available")
+                        .font(.caption2)
+                        .foregroundColor(.vuSuccess)
+                }
+            }
+            
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text("₹")
+                    .font(.system(size: 34, weight: .bold))
+                    .foregroundColor(.vuAccent)
+                
+                TextField("0.00", text: $amount)
+                    .font(.system(size: 36, weight: .heavy, design: .rounded))
+                    .keyboardType(.decimalPad)
+                    .foregroundColor(.vuTextPrimary)
+                
+                if !amount.isEmpty {
+                    Button(action: { amount = "" }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.vuTextMuted)
+                            .font(.title3)
+                    }
+                }
+            }
+            .padding(.vertical, 4)
+        }
+        .padding(20)
+        .vuCard()
+    }
+    
+    // MARK: - Quick Presets
+    private var presetChips: some View {
+        HStack(spacing: 8) {
+            ForEach([50, 100, 250, 500], id: \.self) { val in
+                Button(action: {
+                    let current = Float(amount) ?? 0
+                    amount = String(format: "%.0f", current + Float(val))
+                }) {
+                    Text("+₹\(val)")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.vuTextPrimary)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(Color.vuCardElevated)
+                        .clipShape(Capsule())
+                        .overlay(
+                            Capsule().strokeBorder(Color.vuBorder, lineWidth: 1)
+                        )
+                }
+            }
+            Spacer()
+        }
+    }
+    
+    // MARK: - Roundup Breakdown
+    private var roundupBreakdownCard: some View {
+        VStack(spacing: 12) {
+            let amountVal = Float(amount) ?? 0
+            
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Spend Amount")
+                        .font(.caption)
+                        .foregroundColor(.vuTextSecondary)
+                    Text("₹\(String(format: "%.2f", amountVal))")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.vuTextPrimary)
+                }
+                
+                Spacer()
+                
+                Image(systemName: "arrow.right")
+                    .font(.caption)
+                    .foregroundColor(.vuTextMuted)
+                
+                Spacer()
+                
+                VStack(alignment: .trailing, spacing: 2) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "lock.fill")
+                            .font(.caption2)
+                            .foregroundColor(.vuSuccess)
+                        Text("Auto-Roundup")
+                            .font(.caption)
+                            .foregroundColor(.vuSuccess)
+                    }
+                    Text("+₹\(String(format: "%.2f", calculatedRoundup))")
+                        .font(.subheadline)
+                        .fontWeight(.bold)
+                        .foregroundColor(.vuSuccess)
+                }
+            }
+            
+            Divider().background(Color.vuDivider)
+            
+            HStack {
+                Text("Total Account Debit")
+                    .font(.subheadline)
+                    .fontWeight(.bold)
+                    .foregroundColor(.vuTextPrimary)
+                
+                Spacer()
+                
+                Text("₹\(String(format: "%.2f", totalAmount))")
+                    .font(.system(size: 20, weight: .heavy, design: .rounded))
+                    .foregroundColor(.vuCyan)
+            }
+            
+            HStack(spacing: 6) {
+                Image(systemName: "sparkles")
+                    .font(.caption2)
+                    .foregroundColor(.vuWarning)
+                Text("₹\(String(format: "%.2f", calculatedRoundup)) directly compounds inside your goal vault.")
+                    .font(.caption2)
+                    .foregroundColor(.vuTextSecondary)
+                Spacer()
+            }
+        }
+        .padding(16)
+        .vuCard(fill: .vuCardElevated)
+    }
+    
+    // MARK: - Merchant Selector
+    private var merchantSelectionCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text("Select Category")
+                    .font(.subheadline)
+                    .fontWeight(.bold)
+                    .foregroundColor(.vuTextPrimary)
+                
+                Spacer()
+                
+                Text(merchantName)
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.vuAccent)
+            }
+            
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 5), spacing: 10) {
+                ForEach(merchants, id: \.0) { merchant, icon, color in
+                    let isSelected = merchantName == merchant
+                    Button(action: { merchantName = merchant }) {
+                        VStack(spacing: 6) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .fill(isSelected ? color : color.opacity(0.12))
+                                    .frame(width: 46, height: 46)
+                                
+                                Image(systemName: icon)
+                                    .font(.system(size: 18))
+                                    .foregroundColor(isSelected ? .white : color)
+                            }
+                            
+                            Text(merchant)
+                                .font(.system(size: 9, weight: isSelected ? .bold : .medium))
+                                .foregroundColor(isSelected ? .vuTextPrimary : .vuTextSecondary)
+                                .lineLimit(1)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(16)
+        .vuCard()
+    }
+    
+    // MARK: - How It Works Note
+    private var howItWorksCard: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "shield.lefthalf.filled")
+                .font(.title3)
+                .foregroundColor(.vuAccent)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Zero Friction Savings")
+                    .font(.caption)
+                    .fontWeight(.bold)
+                    .foregroundColor(.vuTextPrimary)
+                Text("Transactions are authenticated with mock Razorpay test gateway and recorded into your double-entry ledger.")
+                    .font(.caption2)
+                    .foregroundColor(.vuTextSecondary)
+            }
+            
+            Spacer()
+        }
+        .padding(14)
+        .vuCard(fill: Color.vuAccent.opacity(0.08))
+    }
+    
+    // MARK: - Process Payment Button
+    private var processPaymentButton: some View {
+        Button(action: processPayment) {
+            HStack(spacing: 10) {
+                if networkManager.isLoading {
+                    ProgressView().tint(.white)
+                } else {
+                    Image(systemName: "creditcard.fill")
+                        .font(.headline)
+                    Text("Pay ₹\(String(format: "%.2f", totalAmount))")
+                        .font(.headline)
+                        .fontWeight(.bold)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+        }
+        .buttonStyle(VUActionButtonStyle(color: .vuAccent))
+        .disabled(amount.isEmpty || (Float(amount) ?? 0) <= 0 || networkManager.isLoading)
+        .opacity((amount.isEmpty || (Float(amount) ?? 0) <= 0) ? 0.5 : 1.0)
+    }
+    
+    private func errorMessageView(error: String) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundColor(.vuDanger)
+            Text(error)
+                .font(.caption)
+                .foregroundColor(.vuDanger)
+            Spacer()
+        }
+        .padding(12)
+        .background(Color.vuDanger.opacity(0.12))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
     }
     
     private func processPayment() {
@@ -267,101 +359,96 @@ struct PaymentView: View {
             if networkManager.errorMessage == nil {
                 showingPaymentConfirmation = networkManager.lastPaymentOrder != nil
                 amount = ""
-                merchantName = ""
             }
         }
     }
 }
 
+// MARK: - Payment Success Sheet
 struct PaymentSuccessSheet: View {
     let order: PaymentOrder
     @Binding var isPresented: Bool
     
     var body: some View {
         ZStack {
-            LinearGradient(
-                gradient: Gradient(colors: [
-                    Color(red: 0.05, green: 0.05, blue: 0.15),
-                    Color(red: 0.1, green: 0.08, blue: 0.2)
-                ]),
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+            VUBackground()
             
-            VStack(spacing: 24) {
-                VStack(spacing: 16) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 56))
-                        .foregroundColor(.green)
+            VStack(spacing: 20) {
+                // Success Badge
+                ZStack {
+                    Circle()
+                        .fill(Color.vuSuccess.opacity(0.15))
+                        .frame(width: 80, height: 80)
                     
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 52))
+                        .foregroundColor(.vuSuccess)
+                }
+                .padding(.top, 10)
+                
+                VStack(spacing: 4) {
                     Text("Payment Successful!")
                         .font(.title2)
                         .fontWeight(.bold)
-                        .foregroundColor(.white)
+                        .foregroundColor(.vuTextPrimary)
                     
-                    Text("Order ID: \(order.orderId)")
-                        .font(.caption)
-                        .foregroundColor(.gray)
+                    Text("Order Ref: \(order.orderId)")
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundColor(.vuTextSecondary)
                         .textSelection(.enabled)
                 }
                 
+                // Ledger Allocation Card
                 VStack(spacing: 12) {
                     HStack {
-                        Text("Payment Amount")
-                            .foregroundColor(.gray)
+                        Text("Paid to Merchant")
+                            .foregroundColor(.vuTextSecondary)
                         Spacer()
                         Text("₹\(String(format: "%.2f", Float(order.amount) / 100))")
-                            .foregroundColor(.white)
-                            .fontWeight(.semibold)
+                            .font(.headline)
+                            .foregroundColor(.vuTextPrimary)
                     }
                     
-                    Divider()
-                        .background(Color(red: 0.2, green: 0.2, blue: 0.3))
+                    Divider().background(Color.vuDivider)
                     
                     HStack {
-                        Text("Liquid Pocket")
-                            .foregroundColor(.gray)
+                        Text("Liquid Account Allocation")
+                            .foregroundColor(.vuTextSecondary)
                         Spacer()
                         Text("₹\(String(format: "%.2f", order.allocation.liquidAllocation))")
-                            .foregroundColor(.cyan)
-                            .fontWeight(.semibold)
+                            .font(.subheadline)
+                            .foregroundColor(.vuCyan)
                     }
                     
                     HStack {
-                        Text("Goal Vault (Roundup)")
-                            .foregroundColor(.gray)
+                        Label("Saved into Goal Vault", systemImage: "arrow.down.right.and.arrow.up.left")
+                            .foregroundColor(.vuSuccess)
+                            .font(.subheadline)
                         Spacer()
-                        Text("₹\(String(format: "%.2f", order.allocation.roundupAmount))")
-                            .foregroundColor(.indigo)
+                        Text("+₹\(String(format: "%.2f", order.allocation.roundupAmount))")
+                            .font(.headline)
                             .fontWeight(.bold)
+                            .foregroundColor(.vuSuccess)
                     }
                     .padding(12)
-                    .background(Color(red: 0.12, green: 0.12, blue: 0.22))
-                    .cornerRadius(8)
+                    .background(Color.vuSuccess.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
                 }
-                .padding(16)
-                .background(Color(red: 0.1, green: 0.1, blue: 0.2))
-                .cornerRadius(12)
+                .padding(18)
+                .vuCard()
                 
                 Button(action: { isPresented = false }) {
                     Text("Done")
                         .font(.headline)
-                        .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
-                        .padding(14)
-                        .background(Color.indigo)
-                        .cornerRadius(10)
+                        .padding(.vertical, 14)
                 }
+                .buttonStyle(VUActionButtonStyle(color: .vuAccent))
                 
                 Spacer()
             }
             .padding(24)
         }
-        .presentationDetents([.fraction(0.6)])
+        .presentationDetents([.medium])
     }
-}
-
-#Preview {
-    PaymentView()
 }

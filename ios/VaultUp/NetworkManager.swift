@@ -11,18 +11,48 @@ class NetworkManager: ObservableObject {
     @Published var lastPaymentOrder: PaymentOrder?
     @Published var isLoading = false
     @Published var errorMessage: String?
+    @Published var isLoggedIn = false
     
     private let baseURL = "http://localhost:8000/api"
     private var userId: Int?
+    
+    init() {
+        let savedLoggedIn = UserDefaults.standard.bool(forKey: "is_logged_in")
+        let savedUserId = UserDefaults.standard.integer(forKey: "current_user_id")
+        if savedLoggedIn && savedUserId > 0 {
+            self.userId = savedUserId
+            self.isLoggedIn = true
+            Task {
+                await fetchUser(userId: savedUserId)
+                await fetchDashboard(userId: savedUserId)
+                await fetchVaults(userId: savedUserId)
+            }
+        }
+    }
 
     func startDemoSession() async {
         await fetchUser(userId: 1)
         await fetchDashboard(userId: 1)
+        await fetchVaults(userId: 1)
+        DispatchQueue.main.async {
+            self.isLoggedIn = true
+            UserDefaults.standard.set(true, forKey: "is_logged_in")
+            UserDefaults.standard.set(1, forKey: "current_user_id")
+        }
     }
     
     // MARK: - User Management
     
-    func registerUser(name: String, email: String, phone: String, studentEmail: String) async {
+    @discardableResult
+    func registerUser(
+        name: String,
+        email: String,
+        phone: String,
+        studentEmail: String,
+        rollNumber: String = "",
+        dob: Date = Date(),
+        bankAccount: String = ""
+    ) async -> Bool {
         let endpoint = "\(baseURL)/users/register"
         
         let request = UserRegistrationRequest(
@@ -32,6 +62,7 @@ class NetworkManager: ObservableObject {
             studentEmail: studentEmail.isEmpty ? nil : studentEmail
         )
         
+        var success = false
         await performRequest(
             url: endpoint,
             method: "POST",
@@ -42,12 +73,38 @@ class NetworkManager: ObservableObject {
                 case .success(let user):
                     self.currentUser = user
                     self.userId = user.id
+                    self.isLoggedIn = true
                     self.errorMessage = nil
+                    UserDefaults.standard.set(true, forKey: "is_logged_in")
+                    UserDefaults.standard.set(user.id, forKey: "current_user_id")
+                    
+                    // Save custom student profile
+                    let profile = StudentProfile(
+                        name: user.name,
+                        dateOfBirth: dob,
+                        rollNumber: rollNumber.isEmpty ? "24STU\(user.id)01" : rollNumber,
+                        college: studentEmail.contains(".edu") ? "University College" : "Institute of Technology",
+                        isVerified: true
+                    )
+                    if let encoded = try? JSONEncoder().encode(profile) {
+                        UserDefaults.standard.set(encoded, forKey: "student_profile_data")
+                    }
+                    
+                    Task {
+                        if !bankAccount.isEmpty {
+                            await self.connectBank(accountNumber: bankAccount)
+                        }
+                        await self.fetchDashboard(userId: user.id)
+                        await self.fetchVaults(userId: user.id)
+                    }
+                    success = true
                 case .failure(let error):
                     self.errorMessage = error.localizedDescription
+                    success = false
                 }
             }
         }
+        return success
     }
     
     func fetchUser(userId: Int) async {
@@ -70,9 +127,11 @@ class NetworkManager: ObservableObject {
         }
     }
     
-    func login(phone: String) async {
+    @discardableResult
+    func login(identifier: String) async -> Bool {
         let endpoint = "\(baseURL)/users/login"
-        let request = LoginRequest(phone: phone)
+        let request = LoginRequest(identifier: identifier)
+        var success = false
         
         await performRequest(
             url: endpoint,
@@ -84,11 +143,36 @@ class NetworkManager: ObservableObject {
                 case .success(let user):
                     self.currentUser = user
                     self.userId = user.id
+                    self.isLoggedIn = true
                     self.errorMessage = nil
+                    UserDefaults.standard.set(true, forKey: "is_logged_in")
+                    UserDefaults.standard.set(user.id, forKey: "current_user_id")
+                    Task {
+                        await self.fetchDashboard(userId: user.id)
+                        await self.fetchVaults(userId: user.id)
+                    }
+                    success = true
                 case .failure(let error):
                     self.errorMessage = error.localizedDescription
+                    success = false
                 }
             }
+        }
+        return success
+    }
+    
+    func logout() {
+        DispatchQueue.main.async {
+            self.currentUser = nil
+            self.userId = nil
+            self.dashboard = nil
+            self.vaults = []
+            self.ledger = []
+            self.lastPaymentOrder = nil
+            self.errorMessage = nil
+            self.isLoggedIn = false
+            UserDefaults.standard.set(false, forKey: "is_logged_in")
+            UserDefaults.standard.removeObject(forKey: "current_user_id")
         }
     }
     
@@ -198,14 +282,35 @@ class NetworkManager: ObservableObject {
         }
     }
     
-    func deleteVault(vaultId: Int) async {
-        let endpoint = "\(baseURL)/vaults/\(vaultId)"
+    func deleteVault(vaultId: Int, transferDestination: String? = nil, targetVaultId: Int? = nil) async {
+        var endpoint = "\(baseURL)/vaults/\(vaultId)"
+        var queryItems: [String] = []
+        if let destination = transferDestination {
+            queryItems.append("transfer_destination=\(destination)")
+        }
+        if let targetId = targetVaultId {
+            queryItems.append("target_vault_id=\(targetId)")
+        }
+        if !queryItems.isEmpty {
+            endpoint += "?" + queryItems.joined(separator: "&")
+        }
+        
+        DispatchQueue.main.async { self.isLoading = true }
+        
         await performRequest(url: endpoint, method: "DELETE") { (result: Result<DeleteVaultResponse, Error>) in
             DispatchQueue.main.async {
+                self.isLoading = false
                 switch result {
                 case .success:
                     self.vaults.removeAll { $0.id == vaultId }
                     self.errorMessage = nil
+                    if let userId = self.userId {
+                        Task {
+                            await self.fetchDashboard(userId: userId)
+                            await self.fetchVaults(userId: userId)
+                            await self.fetchLedger(userId: userId)
+                        }
+                    }
                 case .failure(let error):
                     self.errorMessage = error.localizedDescription
                 }

@@ -5,55 +5,68 @@ struct TransactionHistoryView: View {
     @Environment(\.dismiss) var dismiss
     
     var body: some View {
-        ZStack {
-            VUBackground()
-            
-            VStack {
-                // Header
-                HStack {
-                    Text("Transactions")
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
-                        .foregroundColor(.white)
-                    Spacer()
-                    
-                    Button(action: {
-                        dismiss()
-                    }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.title)
-                            .foregroundColor(.gray)
-                    }
-                }
-                .padding()
+        NavigationStack {
+            ZStack {
+                VUBackground()
                 
-                if networkManager.isLoading {
-                    Spacer()
-                    ProgressView()
-                        .tint(.white)
-                    Spacer()
-                } else if networkManager.ledger.isEmpty {
-                    Spacer()
-                    VStack(spacing: 16) {
-                        Image(systemName: "list.bullet.rectangle.portrait")
-                            .font(.system(size: 48))
-                            .foregroundColor(.gray)
-                        Text("No Transactions Yet")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                    }
-                    Spacer()
-                } else {
-                    ScrollView {
-                        LazyVStack(spacing: 12) {
-                            ForEach(networkManager.ledger) { entry in
-                                TransactionRow(entry: entry)
-                            }
+                VStack(spacing: 0) {
+                    // Header
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Ledger History")
+                                .font(.system(size: 26, weight: .bold))
+                                .foregroundColor(.vuTextPrimary)
+                            Text("Double-entry cryptographic ledger")
+                                .font(.caption)
+                                .foregroundColor(.vuTextSecondary)
                         }
-                        .padding(.horizontal)
+                        
+                        Spacer()
+                        
+                        Button(action: { dismiss() }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.title2)
+                                .foregroundColor(.vuTextSecondary)
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 20)
+                    .padding(.bottom, 16)
+                    
+                    if networkManager.isLoading {
+                        Spacer()
+                        ProgressView()
+                            .tint(.vuAccent)
+                        Spacer()
+                    } else if networkManager.ledger.isEmpty {
+                        Spacer()
+                        VStack(spacing: 16) {
+                            Image(systemName: "list.bullet.rectangle.portrait")
+                                .font(.system(size: 48))
+                                .foregroundColor(.vuTextMuted)
+                            Text("No Transactions Yet")
+                                .font(.headline)
+                                .foregroundColor(.vuTextPrimary)
+                            Text("Make a payment or transfer into a vault to see transactions.")
+                                .font(.caption)
+                                .foregroundColor(.vuTextSecondary)
+                        }
+                        .padding(32)
+                        Spacer()
+                    } else {
+                        ScrollView(showsIndicators: false) {
+                            LazyVStack(spacing: 12) {
+                                ForEach(networkManager.ledger) { entry in
+                                    TransactionRow(entry: entry)
+                                }
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.bottom, 24)
+                        }
                     }
                 }
             }
+            .navigationBarHidden(true)
         }
         .onAppear {
             if let userId = networkManager.currentUser?.id {
@@ -87,36 +100,41 @@ struct TransactionRow: View {
     
     var iconColor: Color {
         if entry.amount < 0 || entry.entryType == "withdrawal" {
-            return .orange
+            return .vuWarning
         }
-        return .green
+        return .vuSuccess
     }
     
     var body: some View {
-        HStack(spacing: 16) {
-            Image(systemName: iconName)
-                .font(.title2)
-                .foregroundColor(iconColor)
+        HStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(iconColor.opacity(0.14))
+                    .frame(width: 42, height: 42)
+                
+                Image(systemName: iconName)
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(iconColor)
+            }
             
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(title)
                     .font(.subheadline)
                     .fontWeight(.semibold)
-                    .foregroundColor(.white)
+                    .foregroundColor(.vuTextPrimary)
                 
-                Text(entry.timestamp) // Should be formatted in a real app
-                    .font(.caption)
-                    .foregroundColor(.gray)
+                Text(entry.timestamp)
+                    .font(.caption2)
+                    .foregroundColor(.vuTextSecondary)
             }
             
             Spacer()
             
             Text("\(entry.amount > 0 ? "+" : "")₹\(String(format: "%.2f", entry.amount))")
-                .font(.headline)
+                .font(.system(size: 16, weight: .bold, design: .rounded))
                 .foregroundColor(iconColor)
         }
-        .padding()
-        .background(Color(red: 0.15, green: 0.15, blue: 0.25))
-        .cornerRadius(12)
+        .padding(14)
+        .vuCard()
     }
 }

@@ -115,7 +115,9 @@ class SplitDepositRequest(BaseModel):
     split_ratio: float = 0.3  # 30% to goal vault
 
 class LoginRequest(BaseModel):
-    phone: str
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    identifier: Optional[str] = None
 
 class ConnectBankRequest(BaseModel):
     account_number: str
@@ -129,30 +131,33 @@ class VaultTransactionRequest(BaseModel):
 @app.post("/api/users/register", response_model=UserResponse)
 def register_user(user_data: UserCreate, db: Session = Depends(get_db)):
     """Register a new user"""
-    existing = db.query(User).filter(User.email == user_data.email).first()
+    existing = db.query(User).filter(
+        (User.email == user_data.email) | 
+        ((User.phone == user_data.phone) & (User.phone != None) & (User.phone != ""))
+    ).first()
     if existing:
-        raise HTTPException(status_code=400, detail="User already exists")
+        raise HTTPException(status_code=400, detail="An account with this email or phone already exists. Please sign in.")
     
     new_user = User(
         name=user_data.name,
         email=user_data.email,
         phone=user_data.phone,
         student_email=user_data.student_email,
-        is_student_verified=bool(user_data.student_email and user_data.student_email.endswith(".edu"))
+        is_student_verified=True
     )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
     
-    # Create default Liquid Pocket vault
-    liquid_vault = Vault(
+    # Create default Main Pocket vault
+    main_pocket = Vault(
         user_id=new_user.id,
-        name="Liquid Pocket 💰",
+        name="Main Pocket 💰",
         vault_type=VaultType.LIQUID,
         target_amount=0.0,
         current_balance=0.0
     )
-    db.add(liquid_vault)
+    db.add(main_pocket)
     db.commit()
     
     return new_user
@@ -167,29 +172,20 @@ def get_user(user_id: int, db: Session = Depends(get_db)):
 
 @app.post("/api/users/login", response_model=UserResponse)
 def login_user(login_data: LoginRequest, db: Session = Depends(get_db)):
-    """Login user via phone number"""
-    user = db.query(User).filter(User.phone == login_data.phone).first()
+    """Login user via phone number, email, or identifier"""
+    query_val = (login_data.identifier or login_data.phone or login_data.email or "").strip()
+    if not query_val:
+        raise HTTPException(status_code=400, detail="Phone number or email is required to sign in")
+    
+    user = db.query(User).filter(
+        (User.phone == query_val) | (User.email == query_val) | (User.student_email == query_val)
+    ).first()
+    
+    if not user and query_val.isdigit():
+        user = db.query(User).filter(User.id == int(query_val)).first()
+        
     if not user:
-        # For prototype: auto-create if not exists
-        user = User(
-            name="Test User",
-            email=f"{login_data.phone}@example.com",
-            phone=login_data.phone,
-            is_student_verified=True
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-        # Create default liquid pocket
-        liquid_vault = Vault(
-            user_id=user.id,
-            name="VaultUp Lite ⚡️",
-            vault_type=VaultType.LIQUID,
-            target_amount=5000.0,
-            current_balance=0.0
-        )
-        db.add(liquid_vault)
-        db.commit()
+        raise HTTPException(status_code=404, detail="No account found with this credential. Please check your number or sign up.")
     return user
 
 @app.post("/api/users/{user_id}/connect-bank", response_model=UserResponse)
@@ -248,14 +244,74 @@ def get_vault(vault_id: int, db: Session = Depends(get_db)):
     return vault
 
 @app.delete("/api/vaults/{vault_id}")
-def delete_vault(vault_id: int, db: Session = Depends(get_db)):
+def delete_vault(
+    vault_id: int,
+    transfer_destination: Optional[str] = None,  # 'bank' or 'vault'
+    target_vault_id: Optional[int] = None,
+    db: Session = Depends(get_db)
+):
     vault = db.query(Vault).filter(Vault.id == vault_id).first()
     if not vault:
         raise HTTPException(status_code=404, detail="Vault not found")
     if vault.vault_type == VaultType.LIQUID:
-        raise HTTPException(status_code=400, detail="The liquid vault cannot be deleted")
-    if vault.current_balance > 0:
-        raise HTTPException(status_code=400, detail="Move the vault balance before deleting it")
+        raise HTTPException(status_code=400, detail="The primary liquid vault cannot be deleted")
+    
+    balance = float(vault.current_balance or 0.0)
+    user = db.query(User).filter(User.id == vault.user_id).first()
+    liquid_vault = db.query(Vault).filter(
+        Vault.user_id == vault.user_id,
+        Vault.vault_type == VaultType.LIQUID,
+        Vault.id != vault.id
+    ).first()
+
+    if balance > 0:
+        if transfer_destination == "bank":
+            bank_name = user.linked_bank_account if (user and user.linked_bank_account) else "Linked Bank Account"
+            target_id = liquid_vault.id if liquid_vault else vault.id
+            ledger = LedgerEntry(
+                user_id=vault.user_id,
+                transaction_ref=f"closure_{int(datetime.utcnow().timestamp())}_{vault.id}",
+                from_vault_id=vault.id,
+                to_vault_id=target_id,
+                amount=-balance,
+                entry_type="withdrawal",
+                description=f"Vault '{vault.name}' closed: ₹{balance:.2f} credited to {bank_name}"
+            )
+            db.add(ledger)
+            vault.current_balance = 0.0
+            
+        elif transfer_destination == "vault" and target_vault_id:
+            target_vault = db.query(Vault).filter(Vault.id == target_vault_id, Vault.user_id == vault.user_id).first()
+            if not target_vault:
+                raise HTTPException(status_code=400, detail="Target destination vault not found")
+            if target_vault.id == vault.id:
+                raise HTTPException(status_code=400, detail="Cannot transfer funds into the vault being deleted")
+            
+            target_vault.current_balance += balance
+            ledger = LedgerEntry(
+                user_id=vault.user_id,
+                transaction_ref=f"closure_transfer_{int(datetime.utcnow().timestamp())}_{vault.id}",
+                from_vault_id=vault.id,
+                to_vault_id=target_vault.id,
+                amount=balance,
+                entry_type="deposit",
+                description=f"Transferred ₹{balance:.2f} from closed vault '{vault.name}' to '{target_vault.name}'"
+            )
+            db.add(ledger)
+            vault.current_balance = 0.0
+            
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Vault has a remaining balance of ₹{balance:.2f}. Please specify transfer destination ('bank' or an existing vault)."
+            )
+
+    # Re-link ledger entries where to_vault_id or from_vault_id was this vault to preserve audit trail
+    fallback_id = target_vault_id if target_vault_id else (liquid_vault.id if liquid_vault else None)
+    if fallback_id:
+        db.query(LedgerEntry).filter(LedgerEntry.to_vault_id == vault.id).update({"to_vault_id": fallback_id})
+        db.query(LedgerEntry).filter(LedgerEntry.from_vault_id == vault.id).update({"from_vault_id": fallback_id})
+
     db.delete(vault)
     db.commit()
     return {"status": "success", "vault_id": vault_id}
@@ -362,7 +418,18 @@ def create_payment_order(payment_req: PaymentRequest, user_id: int, db: Session 
     ).first()
     
     if not liquid_vault:
-        raise HTTPException(status_code=400, detail="Liquid vault not found")
+        liquid_vault = db.query(Vault).filter(Vault.user_id == user_id).first()
+        if not liquid_vault:
+            liquid_vault = Vault(
+                user_id=user_id,
+                name="Main Pocket 💰",
+                vault_type=VaultType.LIQUID,
+                target_amount=0.0,
+                current_balance=0.0
+            )
+            db.add(liquid_vault)
+            db.commit()
+            db.refresh(liquid_vault)
     
     # Calculate allocation
     allocation = allocate_to_vaults(
